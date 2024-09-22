@@ -64,6 +64,12 @@ struct LegacyVersion : public std::exception
     int version;
 };
 
+struct LoadFailure : public std::exception
+{
+    LoadFailure( const char* msg ) : msg( msg ) {}
+    std::string msg;
+};
+
 struct LoadProgress
 {
     enum Stage
@@ -142,6 +148,7 @@ public:
     struct CpuThreadTopology
     {
         uint32_t package;
+        uint32_t die;
         uint32_t core;
     };
 
@@ -386,7 +393,7 @@ private:
         bool ctxUsageReady = false;
 #endif
 
-        unordered_flat_map<uint32_t, unordered_flat_map<uint32_t, std::vector<uint32_t>>> cpuTopology;
+        unordered_flat_map<uint32_t, unordered_flat_map<uint32_t, unordered_flat_map<uint32_t, std::vector<uint32_t>>>> cpuTopology;
         unordered_flat_map<uint32_t, CpuThreadTopology> cpuTopologyMap;
 
         unordered_flat_map<uint64_t, MemoryBlock> symbolCode;
@@ -441,11 +448,12 @@ public:
         FrameImageIndex,
         FrameImageTwice,
         FiberLeave,
+        SourceLocationOverflow,
 
         NUM_FAILURES
     };
 
-    Worker( const char* addr, uint16_t port );
+    Worker( const char* addr, uint16_t port, int64_t memoryLimit );
     Worker( const char* name, const char* program, const std::vector<ImportEventTimeline>& timeline, const std::vector<ImportEventMessages>& messages, const std::vector<ImportEventPlots>& plots, const std::unordered_map<uint64_t, std::string>& threadNames );
     Worker( FileRead& f, EventType::Type eventMask = EventType::All, bool bgTasks = true, bool allowStringModification = false);
     ~Worker();
@@ -636,6 +644,7 @@ public:
     void Shutdown() { m_shutdown.store( true, std::memory_order_relaxed ); }
     void Disconnect();
     bool WasDisconnectIssued() const { return m_disconnect; }
+    int64_t GetMemoryLimit() const { return m_memoryLimit; }
 
     void Write( FileWrite& f, bool fiDict );
     int GetTraceVersion() const { return m_traceVersion; }
@@ -669,6 +678,9 @@ public:
     void CacheSourceFiles();
 
     StringLocation StoreString(const char* str, size_t sz);
+
+    std::vector<uint32_t>& GetPendingThreadHints() { return m_pendingThreadHints; }
+    void ClearPendingThreadHints() { m_pendingThreadHints.clear(); }
 
 private:
     void Network();
@@ -760,6 +772,7 @@ private:
     tracy_force_inline void ProcessSourceCodeNotAvailable( const QueueSourceCodeNotAvailable& ev );
     tracy_force_inline void ProcessCpuTopology( const QueueCpuTopology& ev );
     tracy_force_inline void ProcessMemNamePayload( const QueueMemNamePayload& ev );
+    tracy_force_inline void ProcessThreadGroupHint( const QueueThreadGroupHint& ev );
     tracy_force_inline void ProcessFiberEnter( const QueueFiberEnter& ev );
     tracy_force_inline void ProcessFiberLeave( const QueueFiberLeave& ev );
 
@@ -790,6 +803,7 @@ private:
     void FrameImageIndexFailure();
     void FrameImageTwiceFailure();
     void FiberLeaveFailure();
+    void SourceLocationOverflowFailure();
 
     tracy_force_inline void CheckSourceLocation( uint64_t ptr );
     void NewSourceLocation( uint64_t ptr );
@@ -808,7 +822,7 @@ private:
     void InsertMessageData( MessageData* msg );
 
     ThreadData* NoticeThreadReal( uint64_t thread );
-    ThreadData* NewThread( uint64_t thread, bool fiber );
+    ThreadData* NewThread( uint64_t thread, bool fiber, int32_t groupHint );
     tracy_force_inline ThreadData* NoticeThread( uint64_t thread )
     {
         if( m_data.threadDataLast.first == thread ) return m_data.threadDataLast.second;
@@ -1023,6 +1037,7 @@ private:
     uint64_t m_memNamePayload = 0;
 
     Slab<64*1024*1024> m_slab;
+    int64_t m_memoryLimit;
 
     DataBlock m_data;
     MbpsBlock m_mbpsData;
@@ -1084,6 +1099,10 @@ private:
     uint32_t m_nextSourceCodeQuery = 0;
 
     unordered_flat_map<uint64_t, PowerData> m_powerData;
+
+    Vector<InlineStackData> m_inlineStack;
+
+    std::vector<uint32_t> m_pendingThreadHints;
 };
 
 }

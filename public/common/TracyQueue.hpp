@@ -108,6 +108,7 @@ enum class QueueType : uint8_t
     SingleStringData,
     SecondStringData,
     MemNamePayload,
+    ThreadGroupHint,
     StringData,
     ThreadName,
     PlotName,
@@ -259,6 +260,7 @@ struct QueueFiberEnter
     int64_t time;
     uint64_t fiber;     // ptr
     uint32_t thread;
+    int32_t groupHint;
 };
 
 struct QueueFiberLeave
@@ -399,7 +401,8 @@ enum class GpuContextType : uint8_t
     Vulkan,
     OpenCL,
     Direct3D12,
-    Direct3D11
+    Direct3D11,
+    Metal
 };
 
 enum GpuContextFlags : uint8_t
@@ -475,6 +478,12 @@ struct QueueGpuContextNameFat : public QueueGpuContextName
 struct QueueMemNamePayload
 {
     uint64_t name;
+};
+
+struct QueueThreadGroupHint
+{
+    uint32_t thread;
+    int32_t groupHint;
 };
 
 struct QueueMemAlloc
@@ -639,6 +648,7 @@ struct QueueSourceCodeNotAvailable
 struct QueueCpuTopology
 {
     uint32_t package;
+    uint32_t die;
     uint32_t core;
     uint32_t thread;
 };
@@ -732,6 +742,7 @@ struct QueueItem
         QueueMemAlloc memAlloc;
         QueueMemFree memFree;
         QueueMemNamePayload memName;
+        QueueThreadGroupHint threadGroupHint;
         QueueCallstackFat callstackFat;
         QueueCallstackFatThread callstackFatThread;
         QueueCallstackAllocFat callstackAllocFat;
@@ -868,6 +879,7 @@ static constexpr size_t QueueDataSize[] = {
     sizeof( QueueHeader ),                                  // single string data
     sizeof( QueueHeader ),                                  // second string data
     sizeof( QueueHeader ) + sizeof( QueueMemNamePayload ),
+    sizeof( QueueHeader ) + sizeof( QueueThreadGroupHint ),
     // keep all QueueStringTransfer below
     sizeof( QueueHeader ) + sizeof( QueueStringTransfer ),  // string data
     sizeof( QueueHeader ) + sizeof( QueueStringTransfer ),  // thread name

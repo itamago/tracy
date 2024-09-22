@@ -166,6 +166,7 @@ typedef khronos_uint8_t GLubyte;
 #define GL_SCISSOR_BOX                    0x0C10
 #define GL_SCISSOR_TEST                   0x0C11
 #define GL_UNPACK_ROW_LENGTH              0x0CF2
+#define GL_PACK_ALIGNMENT                 0x0D05
 #define GL_TEXTURE_2D                     0x0DE1
 #define GL_UNSIGNED_BYTE                  0x1401
 #define GL_UNSIGNED_SHORT                 0x1403
@@ -192,7 +193,9 @@ typedef void (APIENTRYP PFNGLCLEARPROC) (GLbitfield mask);
 typedef void (APIENTRYP PFNGLCLEARCOLORPROC) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
 typedef void (APIENTRYP PFNGLDISABLEPROC) (GLenum cap);
 typedef void (APIENTRYP PFNGLENABLEPROC) (GLenum cap);
+typedef void (APIENTRYP PFNGLFLUSHPROC) (void);
 typedef void (APIENTRYP PFNGLPIXELSTOREIPROC) (GLenum pname, GLint param);
+typedef void (APIENTRYP PFNGLREADPIXELSPROC) (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void *pixels);
 typedef GLenum (APIENTRYP PFNGLGETERRORPROC) (void);
 typedef void (APIENTRYP PFNGLGETINTEGERVPROC) (GLenum pname, GLint *data);
 typedef const GLubyte *(APIENTRYP PFNGLGETSTRINGPROC) (GLenum name);
@@ -207,7 +210,9 @@ GLAPI void APIENTRY glClear (GLbitfield mask);
 GLAPI void APIENTRY glClearColor (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
 GLAPI void APIENTRY glDisable (GLenum cap);
 GLAPI void APIENTRY glEnable (GLenum cap);
+GLAPI void APIENTRY glFlush (void);
 GLAPI void APIENTRY glPixelStorei (GLenum pname, GLint param);
+GLAPI void APIENTRY glReadPixels (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void *pixels);
 GLAPI GLenum APIENTRY glGetError (void);
 GLAPI void APIENTRY glGetIntegerv (GLenum pname, GLint *data);
 GLAPI const GLubyte *APIENTRY glGetString (GLenum name);
@@ -350,11 +355,16 @@ GLAPI void APIENTRY glUniformMatrix4fv (GLint location, GLsizei count, GLboolean
 GLAPI void APIENTRY glVertexAttribPointer (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 #endif
 #endif /* GL_VERSION_2_0 */
+#ifndef GL_VERSION_2_1
+#define GL_PIXEL_UNPACK_BUFFER            0x88EC
+#define GL_PIXEL_UNPACK_BUFFER_BINDING    0x88EF
+#endif /* GL_VERSION_2_1 */
 #ifndef GL_VERSION_3_0
 typedef khronos_uint16_t GLhalf;
 #define GL_MAJOR_VERSION                  0x821B
 #define GL_MINOR_VERSION                  0x821C
 #define GL_NUM_EXTENSIONS                 0x821D
+#define GL_FRAMEBUFFER_SRGB               0x8DB9
 #define GL_VERTEX_ARRAY_BINDING           0x85B5
 typedef void (APIENTRYP PFNGLGETBOOLEANI_VPROC) (GLenum target, GLuint index, GLboolean *data);
 typedef void (APIENTRYP PFNGLGETINTEGERI_VPROC) (GLenum target, GLuint index, GLint *data);
@@ -471,7 +481,7 @@ GL3W_API GL3WglProc imgl3wGetProcAddress(const char *proc);
 
 /* gl3w internal state */
 union ImGL3WProcs {
-    GL3WglProc ptr[58];
+    GL3WglProc ptr[60];
     struct {
         PFNGLACTIVETEXTUREPROC            ActiveTexture;
         PFNGLATTACHSHADERPROC             AttachShader;
@@ -502,6 +512,7 @@ union ImGL3WProcs {
         PFNGLDRAWELEMENTSBASEVERTEXPROC   DrawElementsBaseVertex;
         PFNGLENABLEPROC                   Enable;
         PFNGLENABLEVERTEXATTRIBARRAYPROC  EnableVertexAttribArray;
+        PFNGLFLUSHPROC                    Flush;
         PFNGLGENBUFFERSPROC               GenBuffers;
         PFNGLGENTEXTURESPROC              GenTextures;
         PFNGLGENVERTEXARRAYSPROC          GenVertexArrays;
@@ -522,6 +533,7 @@ union ImGL3WProcs {
         PFNGLLINKPROGRAMPROC              LinkProgram;
         PFNGLPIXELSTOREIPROC              PixelStorei;
         PFNGLPOLYGONMODEPROC              PolygonMode;
+        PFNGLREADPIXELSPROC               ReadPixels;
         PFNGLSCISSORPROC                  Scissor;
         PFNGLSHADERSOURCEPROC             ShaderSource;
         PFNGLTEXIMAGE2DPROC               TexImage2D;
@@ -566,6 +578,7 @@ GL3W_API extern union ImGL3WProcs imgl3wProcs;
 #define glDrawElementsBaseVertex          imgl3wProcs.gl.DrawElementsBaseVertex
 #define glEnable                          imgl3wProcs.gl.Enable
 #define glEnableVertexAttribArray         imgl3wProcs.gl.EnableVertexAttribArray
+#define glFlush                           imgl3wProcs.gl.Flush
 #define glGenBuffers                      imgl3wProcs.gl.GenBuffers
 #define glGenTextures                     imgl3wProcs.gl.GenTextures
 #define glGenVertexArrays                 imgl3wProcs.gl.GenVertexArrays
@@ -586,6 +599,7 @@ GL3W_API extern union ImGL3WProcs imgl3wProcs;
 #define glLinkProgram                     imgl3wProcs.gl.LinkProgram
 #define glPixelStorei                     imgl3wProcs.gl.PixelStorei
 #define glPolygonMode                     imgl3wProcs.gl.PolygonMode
+#define glReadPixels                      imgl3wProcs.gl.ReadPixels
 #define glScissor                         imgl3wProcs.gl.Scissor
 #define glShaderSource                    imgl3wProcs.gl.ShaderSource
 #define glTexImage2D                      imgl3wProcs.gl.TexImage2D
@@ -609,7 +623,7 @@ extern "C" {
 
 #include <stdlib.h>
 
-#define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
+#define GL3W_ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -662,27 +676,123 @@ static GL3WglProc get_proc(const char *proc)
 #else
 #include <dlfcn.h>
 
-static void *libgl;
-static GL3WglProc (*glx_get_proc_address)(const GLubyte *);
+static void* libgl;  // OpenGL library
+static void* libglx;  // GLX library
+static void* libegl;  // EGL library
+static GL3WGetProcAddressProc gl_get_proc_address;
 
-static int open_libgl(void)
+static void close_libgl(void)
 {
+    if (libgl) {
+        dlclose(libgl);
+        libgl = NULL;
+    }
+    if (libegl) {
+        dlclose(libegl);
+        libegl = NULL;
+    }
+    if (libglx) {
+        dlclose(libglx);
+        libglx = NULL;
+    }
+}
+
+static int is_library_loaded(const char* name, void** lib)
+{
+    *lib = dlopen(name, RTLD_LAZY | RTLD_LOCAL | RTLD_NOLOAD);
+    return *lib != NULL;
+}
+
+static int open_libs(void)
+{
+    // On Linux we have two APIs to get process addresses: EGL and GLX.
+    // EGL is supported under both X11 and Wayland, whereas GLX is X11-specific.
+
+    libgl = NULL;
+    libegl = NULL;
+    libglx = NULL;
+
+    // First check what's already loaded, the windowing library might have
+    // already loaded either EGL or GLX and we want to use the same one.
+
+    if (is_library_loaded("libEGL.so.1", &libegl) ||
+        is_library_loaded("libGLX.so.0", &libglx)) {
+        libgl = dlopen("libOpenGL.so.0", RTLD_LAZY | RTLD_LOCAL);
+        if (libgl)
+            return GL3W_OK;
+        else
+            close_libgl();
+    }
+
+    if (is_library_loaded("libGL.so", &libgl))
+        return GL3W_OK;
+    if (is_library_loaded("libGL.so.1", &libgl))
+        return GL3W_OK;
+    if (is_library_loaded("libGL.so.3", &libgl))
+        return GL3W_OK;
+
+    // Neither is already loaded, so we have to load one.  Try EGL first
+    // because it is supported under both X11 and Wayland.
+
+    // Load OpenGL + EGL
+    libgl = dlopen("libOpenGL.so.0", RTLD_LAZY | RTLD_LOCAL);
+    libegl = dlopen("libEGL.so.1", RTLD_LAZY | RTLD_LOCAL);
+    if (libgl && libegl)
+        return GL3W_OK;
+    else
+        close_libgl();
+
+    // Fall back to legacy libGL, which includes GLX
     // While most systems use libGL.so.1, NetBSD seems to use that libGL.so.3. See https://github.com/ocornut/imgui/issues/6983
     libgl = dlopen("libGL.so", RTLD_LAZY | RTLD_LOCAL);
     if (!libgl)
+        libgl = dlopen("libGL.so.1", RTLD_LAZY | RTLD_LOCAL);
+    if (!libgl)
+        libgl = dlopen("libGL.so.3", RTLD_LAZY | RTLD_LOCAL);
+
+    if (libgl)
+        return GL3W_OK;
+
+    return GL3W_ERROR_LIBRARY_OPEN;
+}
+
+static int open_libgl(void)
+{
+    int res = open_libs();
+    if (res)
+        return res;
+
+    if (libegl)
+        *(void**)(&gl_get_proc_address) = dlsym(libegl, "eglGetProcAddress");
+    else if (libglx)
+        *(void**)(&gl_get_proc_address) = dlsym(libglx, "glXGetProcAddressARB");
+    else
+        *(void**)(&gl_get_proc_address) = dlsym(libgl, "glXGetProcAddressARB");
+
+    if (!gl_get_proc_address) {
+        close_libgl();
         return GL3W_ERROR_LIBRARY_OPEN;
-    *(void **)(&glx_get_proc_address) = dlsym(libgl, "glXGetProcAddressARB");
+    }
+
     return GL3W_OK;
 }
 
-static void close_libgl(void) { dlclose(libgl); }
-
-static GL3WglProc get_proc(const char *proc)
+static GL3WglProc get_proc(const char* proc)
 {
-    GL3WglProc res;
-    res = glx_get_proc_address((const GLubyte *)proc);
+    GL3WglProc res = NULL;
+
+    // Before EGL version 1.5, eglGetProcAddress doesn't support querying core
+    // functions and may return a dummy function if we try, so try to load the
+    // function from the GL library directly first.
+    if (libegl)
+        *(void**)(&res) = dlsym(libgl, proc);
+
     if (!res)
-        *(void **)(&res) = dlsym(libgl, proc);
+        res = gl_get_proc_address(proc);
+
+    if (!libegl && !res)
+        *(void**)(&res) = dlsym(libgl, proc);
+
     return res;
 }
 #endif
@@ -764,6 +874,7 @@ static const char *proc_names[] = {
     "glDrawElementsBaseVertex",
     "glEnable",
     "glEnableVertexAttribArray",
+    "glFlush",
     "glGenBuffers",
     "glGenTextures",
     "glGenVertexArrays",
@@ -784,6 +895,7 @@ static const char *proc_names[] = {
     "glLinkProgram",
     "glPixelStorei",
     "glPolygonMode",
+    "glReadPixels",
     "glScissor",
     "glShaderSource",
     "glTexImage2D",
@@ -800,7 +912,7 @@ GL3W_API union ImGL3WProcs imgl3wProcs;
 static void load_procs(GL3WGetProcAddressProc proc)
 {
     size_t i;
-    for (i = 0; i < ARRAY_SIZE(proc_names); i++)
+    for (i = 0; i < GL3W_ARRAY_SIZE(proc_names); i++)
         imgl3wProcs.ptr[i] = proc(proc_names[i]);
 }
 
