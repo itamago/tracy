@@ -224,6 +224,54 @@ private:
     LockableCtx m_ctx;
 };
 
+// EASE IMPLEMENTATION with underlying camelcase method calls
+template<class T>
+class EaseLockable
+{
+public:
+    tracy_force_inline EaseLockable( const tracy::SourceLocationData* srcloc )
+        : m_ctx( srcloc )
+    {
+    }
+
+    EaseLockable( const EaseLockable& ) = delete;
+    EaseLockable& operator=( const EaseLockable& ) = delete;
+
+    tracy_force_inline void Lock()
+    {
+        const auto runAfter = m_ctx.BeforeLock();
+        m_lockable.Lock();
+        if( runAfter ) m_ctx.AfterLock();
+    }
+
+    tracy_force_inline void Unlock()
+    {
+        m_lockable.Unlock();
+        m_ctx.AfterUnlock();
+    }
+
+    tracy_force_inline bool TryLock()
+    {
+        const auto acquired = m_lockable.TryLock();
+        m_ctx.AfterTryLock( acquired );
+        return acquired;
+    }
+
+    tracy_force_inline void Mark( const tracy::SourceLocationData* srcloc )
+    {
+        m_ctx.Mark( srcloc );
+    }
+
+    tracy_force_inline void CustomName( const char* name, size_t size )
+    {
+        m_ctx.CustomName( name, size );
+    }
+
+private:
+    T m_lockable;
+    tracy::LockableCtx m_ctx;
+};
+
 
 class SharedLockableCtx
 {

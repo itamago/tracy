@@ -59,7 +59,7 @@
 #define TracyLockableN( type, varname, desc ) type varname
 #define TracySharedLockable( type, varname ) type varname
 #define TracySharedLockableN( type, varname, desc ) type varname
-#define LockableBase( type ) type
+#define TracyLockableBase( type ) type
 #define SharedLockableBase( type ) type
 #define LockMark(x) (void)x
 #define LockableName(x,y,z)
@@ -183,10 +183,13 @@
 #define TracyLockableN( type, varname, desc ) tracy::Lockable<type> varname { [] () -> const tracy::SourceLocationData* { static constexpr tracy::SourceLocationData srcloc { nullptr, desc, TracyFile, TracyLine, 0 }; return &srcloc; }() }
 #define TracySharedLockable( type, varname ) tracy::SharedLockable<type> varname { [] () -> const tracy::SourceLocationData* { static constexpr tracy::SourceLocationData srcloc { nullptr, #type " " #varname, TracyFile, TracyLine, 0 }; return &srcloc; }() }
 #define TracySharedLockableN( type, varname, desc ) tracy::SharedLockable<type> varname { [] () -> const tracy::SourceLocationData* { static constexpr tracy::SourceLocationData srcloc { nullptr, desc, TracyFile, TracyLine, 0 }; return &srcloc; }() }
-#define LockableBase( type ) tracy::Lockable<type>
+#define TracyLockableBase( type ) tracy::Lockable<type>
 #define SharedLockableBase( type ) tracy::SharedLockable<type>
 #define LockMark( varname ) static constexpr tracy::SourceLocationData __tracy_lock_location_##varname { nullptr, TracyFunction,  TracyFile, (uint32_t)TracyLine, 0 }; varname.Mark( &__tracy_lock_location_##varname )
 #define LockableName( varname, txt, size ) varname.CustomName( txt, size )
+
+// EASE version
+#define EaseTracyLockable( type, varname )  tracy::EaseLockable<type> varname { [] () -> const tracy::SourceLocationData* { static constexpr tracy::SourceLocationData srcloc { nullptr, #type " " #varname, TracyFile, TracyLine, 0 }; return &srcloc; }() }
 
 #define TracyPlot( name, val ) tracy::Profiler::PlotData( name, val )
 #define TracyPlotConfig( name, type, step, fill, color ) tracy::Profiler::ConfigurePlot( name, type, step, fill, color )
