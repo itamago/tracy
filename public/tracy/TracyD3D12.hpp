@@ -106,6 +106,7 @@ namespace tracy
 
         tracy_force_inline void SubmitQueueItem(tracy::QueueItem* item)
         {
+            (void)(item);
 #ifdef TRACY_ON_DEMAND
             GetProfiler().DeferItem(*item);
 #endif
